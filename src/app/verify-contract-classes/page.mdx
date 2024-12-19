@@ -1,0 +1,117 @@
+export const metadata = {
+  title: 'Verifying Contract Classes on Starknet',
+  description:
+    'verify Starknet smart contracts on Mainnet, Sepolia, and custom networks using Walnut.',
+}
+
+# Verify Contract Classes on Starknet
+
+## Overview
+
+Verification is the process of ensuring that your smart contract’s source code matches the declared class on the network. To debug your contracts at the function level and to step through transactions to see what Cairo code is executed at each step, it's essential to verify your contract classes on Walnut.
+
+Walnut supports verification of contract classes through both the Starknet Foundry's `sncast verify` command and its own API.
+
+## Mainnet and Sepolia
+
+In this section, learn how to verify contracts on Mainnet and Sepolia, using Foundry or Walnut Verification API. To verify contracts on custom Networks, refer to the [Custom Networks](#custom-networks) section.
+
+### Verification with Starknet Foundry `sncast verify`
+
+To verify a contract on Mainnet or Sepolia using Walnut, follow these steps:
+
+1. Ensure your project has a `Scarb.toml` file, and the contract is already deployed to the target network.
+2. Execute the verification command:
+
+```shell {{ title: 'shell' }}
+sncast \
+    verify \
+    --contract-address 0x01e4ebe3278ab4633a9d0d3f5c4290001f29bc3179a70e570b6817dd7f8264fa \
+    --contract-name SimpleBalance \
+    --verifier walnut \
+    --network sepolia
+
+You are about to submit the entire workspace's code to the third-party chosen verifier at walnut, and the code will be publicly available through walnut's APIs. Are you sure? (Y/n) Y
+
+command: verify
+message: Contract verification has started. You can check the verification status at the following link: https://api.walnut.dev/v1/verification/77f1d905-fdb4-4280-b7d6-57cd029d1259/status.
+```
+
+Confirm the submission when prompted. Upon successful verification, you'll receive a message with a verification status link.
+
+### Verification via API
+
+Using Walnut's API, you can directly verify contract classes. Here’s how a typical request to the API looks:
+
+**Endpoint**: `POST /v1/{chain_id}/verify`
+
+**Request Body**:
+
+```json {{ title: 'json' }}
+{
+  "contract_name": "SimpleBalance",
+  "contract_address": "0x01e4ebe3278ab4633a9d0d3f5c4290001f29bc3179a70e570b6817dd7f8264fa", // This is optional to provide if the class_hash is not provided
+  "class_hash": "0x031966c9fe618bcee61d267750b9d46e3d71469e571e331f35f0ca26efe306dc", // This is optional to provide if the contract_address is not provided
+  "source_code": {
+    "src/lib.cairo": "// your lib.cairo source code here",
+    "src/utils/util1.cairo": "// your util1.cairo source code here",
+    "Scarb.toml": "// your Scarb.toml code here"
+  }
+}
+```
+
+- **Chain ID**: The id of the chain where the contract class is declared. Possible values: sn_mainnet, sn_sepolia. (_Mandatory_)
+- **Contract Name**: The name of the contract. The contract name is the part after the mod keyword in your contract file. (_Mandatory_)
+- **Contract Address**: The address of the contract that is to be verified. (_Optional_ if class hash is not provided)
+- **Class hash**: The hash of the class that is to be verified. (_Optional_ if contract address is not provided)
+- **Source Code**: A JSON object containing the file paths as keys and the corresponding source code as values. (_Mandatory_)
+
+**Possible Responses**:
+
+- **200**: Contract successfully verified.
+- **400**: An error occurred during verification, such as a mismatch, returning an error message.
+
+## Custom Networks
+
+Verification is supported on custom networks compatible with Starknet JSON-RPC version ≥0.6.0. For custom networks, Walnut stores verified class data without an associated chain ID, allowing reuse across networks where the class shares the same source code.
+
+Verifying contracts on custom networks is only available through the Walnut Verification API.
+
+### Custom Network Verification API
+
+**Endpoint Example**: `POST /v1/verify`
+
+**Headers**:
+
+- `x-api-key`: Your Walnut API key. Contact us to get an API key: [https://t.me/walnuthq](https://t.me/walnuthq).
+
+**Request Body**:
+
+```json {{ title: 'json' }}
+{
+  "class_names": ["CustomClass1", "CustomClass2"],
+  "class_hashes": ["0xabc123...", "0xabc124..."],
+  "class_name": "CustomClass", // This is optional to provide if multiple class_names are not provided
+  "class_hash": "0xabc123...", // This is optional to provide if multiple class_hashes are not provided
+  "rpc_url": "https://custom-rpc.example.com",
+  "source_code": {
+    "src/lib.cairo": "// your lib.cairo source code here",
+    "src/utils/util1.cairo": "// your util1.cairo source code here",
+    "Scarb.toml": "// your Scarb.toml code here"
+  },
+  "cairo_version": "2.8.2"
+}
+```
+
+- **Class Names**: The names of the contracts. (_Optional_ if the class name of single class is not provided)
+- **Class Hashes**: The hash representing the declared class in the network. (_Optional_ is the class hash of single class is not provided)
+- **Class Name**: The name of the contract. The contract name is the part after the mod keyword in your contract file. (_Optional_ if the multiple clases are not provided)
+- **Class Hash**: The hash representing the declared class in the network. (_Optional_ if the multiple clases are not provided)
+- **RPC URL**: The endpoint of the network's JSON-RPC service. (_Optional_)
+- **Source Code**: A JSON object containing the file paths as keys and the corresponding source code as values. (_Mandatory_)
+- **Cairo version**: The version of Cairo being used. (_Optional_ if not provided, this value is extracted from the starknet field in your Scarb.toml file.)
+
+**Possible Responses**:
+
+- **200**: Class successfully verified.
+- **400**: An error during verification, providing an error message for diagnostics.
